@@ -5,7 +5,8 @@ from model_nb_logistic_classifier import ModelNBLogisticClassifier
 
 class TestNBLogisticClassifier(TestCase):
 
-    def test_train(self):
+    def test_predict(self):
+        # Arrange
         sut = ModelNBLogisticClassifier("m1", "m2")
         x = [
             "M1 is located in M2",
@@ -17,3 +18,8 @@ class TestNBLogisticClassifier(TestCase):
         ]
 
         sut.train(x, y)
+
+        # Act
+        actual = sut.predict(x)
+
+        self.assertEqual(len(actual), len(y))
