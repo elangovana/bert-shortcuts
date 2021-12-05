@@ -1,13 +1,13 @@
 from unittest import TestCase
 
-from model_nb_logistic_classifier import ModelNBLogisticClassifier
+from model_nb_tree_classifier import ModelNBTreeClassifier
 
 
-class TestNBLogisticClassifier(TestCase):
+class TestNBTreeClassifier(TestCase):
 
     def test_predict(self):
         # Arrange
-        sut = ModelNBLogisticClassifier("m1", "m2")
+        sut = ModelNBTreeClassifier("m1", "m2")
         x = [
             "M1 is located in M2",
             "M1 is not located in M2"

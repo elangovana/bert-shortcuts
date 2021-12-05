@@ -6,14 +6,14 @@ import sys
 import sklearn
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.linear_model import LogisticRegression
+from sklearn import tree
 import re
 import functools
 import pandas as pd
 import numpy as np
 
 
-class ModelNBLogisticClassifier:
+class ModelNBTreeClassifier:
     """
     Relation extractor using Naive bayes and logistics regression
     """
@@ -23,7 +23,7 @@ class ModelNBLogisticClassifier:
         self.marker1 = marker1
         self._vec = None
         self._model_naivebayes = MultinomialNB()
-        self._model_logistic = LogisticRegression()
+        self._model_logistic = tree.DecisionTreeClassifier()
         self._num_classes = 0
 
     def train(self, x, y):
@@ -72,7 +72,7 @@ class ModelNBLogisticClassifier:
         result = self._model_naivebayes.predict(x_vector)
 
         # Use  NB + logistic
-        # result = self._model_logistic.predict(features)
+        result = self._model_logistic.predict(features)
 
         return result
 
@@ -112,11 +112,14 @@ class ModelNBLogisticClassifier:
         total_wc_count = functools.reduce(lambda a, b: a + b, map(lambda x: x[1], counter.items()))
         return counter[word] / total_wc_count
 
+
     def _pair_per_sentence(self, text, w1, w2):
         sentences = text.split(".")
         sentences_with_pairs = list(filter(lambda s: w1 in s and w2 in s, sentences))
 
         return len(sentences_with_pairs) / len(sentences)
+
+
 
 
 def run_main():
@@ -143,7 +146,7 @@ def run_main():
 def compute(trainfile, testfile):
     df_train = pd.read_json(trainfile, orient="records")
     df_test = pd.read_json(testfile, orient="records")
-    m = ModelNBLogisticClassifier("PROTPART1", "PROTPART0")
+    m = ModelNBTreeClassifier("PROTPART1", "PROTPART0")
     m.train(df_train["x"], df_train["y"])
     actual = m.predict(df_test["x"])
     pos_f1 = sklearn.metrics.f1_score(df_test["y"], actual, labels=[1, 2, 3, 4, 5, 6], average='micro',
