@@ -49,14 +49,13 @@ class ModelNBLogisticClassifier:
         return result
 
     def _extract_features(self, x, x_vector):
-        shortest_distance_feature = map(lambda x: self._shortest_distance(x, self.marker2, self.marker1), x)
+        shortest_distance_feature = map(lambda x: self._shortest_distance(x, self.marker1, self.marker2), x)
         protein1_occurrance = map(lambda x: self._occurrance_weight(x, self.marker1), x)
         protein2_occurrance = map(lambda x: self._occurrance_weight(x, self.marker2), x)
         pair_per_sentence = map(lambda x: self._pair_per_sentence(x, self.marker1, self.marker2), x)
         nb_predictions = self._model_naivebayes.predict(x_vector)
         features = list(
             zip(shortest_distance_feature, protein1_occurrance, protein2_occurrance, pair_per_sentence))
-
         features = [self._get_one_hot(p) + list(f) for p, f in zip(nb_predictions, features)]
         return features
 
@@ -81,10 +80,9 @@ class ModelNBLogisticClassifier:
         words = re.split('\W+', text)
 
         start_i = None
-        min_distance = 0
+        min_distance = None
 
         for i, w in enumerate(words):
-
             if w not in [p1, p2]: continue
 
             # Treat this reset start pointer
@@ -104,6 +102,9 @@ class ModelNBLogisticClassifier:
                     min_distance_word = " ".join(words[start_i: end_i + 1])
                 # Reset start
                 start_i = end_i
+
+        if min_distance is None:
+            min_distance = 1000000
         return min_distance
 
     def _occurrance_weight(self, text, word):
