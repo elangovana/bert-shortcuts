@@ -10,6 +10,8 @@ from sklearn.linear_model import LogisticRegression
 import re
 import functools
 import pandas as pd
+import numpy as np
+
 
 class ModelNBLogisticClassifier:
     """
@@ -19,31 +21,61 @@ class ModelNBLogisticClassifier:
     def __init__(self, marker1, marker2):
         self.marker2 = marker2
         self.marker1 = marker1
-        self._vec = CountVectorizer(stop_words='english')
+        self._vec = None
         self._model_naivebayes = MultinomialNB()
         self._model_logistic = LogisticRegression()
+        self._num_classes = 0
 
     def train(self, x, y):
+        self._vec = CountVectorizer(stop_words='english', vocabulary=self._get_vocab(x, y))
+        self._num_classes = len(np.unique(y))
         x_vector = self._vec.fit_transform(x)
         self._model_naivebayes.fit(x_vector, y)
 
         features = self._extract_features(x, x_vector)
         self._model_logistic.fit(features, y)
 
+    def _get_vocab(self, x, y):
+        unique_labels = np.unique(y)
+        result = []
+        for l in unique_labels:
+            xl_instances = [ix for ix, iy in zip(x, y) if iy == l]
+            cv = CountVectorizer(stop_words='english', max_features=100)
+            cv.fit(xl_instances)
+            result.extend([w for w in cv.vocabulary_])
+
+        result = list(set(result))
+
+        return result
+
     def _extract_features(self, x, x_vector):
         shortest_distance_feature = map(lambda x: self._shortest_distance(x, self.marker2, self.marker1), x)
         protein1_occurrance = map(lambda x: self._occurrance_weight(x, self.marker1), x)
         protein2_occurrance = map(lambda x: self._occurrance_weight(x, self.marker2), x)
         pair_per_sentence = map(lambda x: self._pair_per_sentence(x, self.marker1, self.marker2), x)
-        nb_probs = self._model_naivebayes.predict(x_vector)
+        nb_predictions = self._model_naivebayes.predict(x_vector)
         features = list(
-            zip(shortest_distance_feature, protein1_occurrance, protein2_occurrance, pair_per_sentence, nb_probs))
+            zip(shortest_distance_feature, protein1_occurrance, protein2_occurrance, pair_per_sentence))
+
+        features = [self._get_one_hot(p) + list(f) for p, f in zip(nb_predictions, features)]
         return features
+
+    def _get_one_hot(self, i):
+        result = list(np.zeros(self._num_classes))
+        result[i] = 1
+        return result
 
     def predict(self, x):
         x_vector = self._vec.transform(x)
         features = self._extract_features(x, x_vector)
-        return self._model_logistic.predict(features)
+
+        # Use just NB
+        result = self._model_naivebayes.predict(x_vector)
+
+        # Use  NB + logistic
+        # result = self._model_logistic.predict(features)
+
+        return result
 
     def _shortest_distance(self, text, p1, p2):
         words = re.split('\W+', text)
@@ -113,10 +145,19 @@ def compute(trainfile, testfile):
     m = ModelNBLogisticClassifier("PROTPART1", "PROTPART0")
     m.train(df_train["x"], df_train["y"])
     actual = m.predict(df_test["x"])
-    pos_f1 = sklearn.metrics.f1_score(df_test["y"], actual, labels=[1,2,3,4,5] , average='micro', sample_weight=None, zero_division='warn')
-    all_f1 = sklearn.metrics.f1_score(df_test["y"], actual,  average='micro', sample_weight=None, zero_division='warn')
+    pos_f1 = sklearn.metrics.f1_score(df_test["y"], actual, labels=[1, 2, 3, 4, 5, 6], average='micro',
+                                      sample_weight=None, zero_division='warn')
+    all_f1 = sklearn.metrics.f1_score(df_test["y"], actual, average='micro', sample_weight=None, zero_division='warn')
+    print(sklearn.metrics.classification_report(df_test["y"],
+                                                actual,
+                                                output_dict=False,
+                                                labels=[1, 2, 3, 4, 5, 6]))
 
-    print(pos_f1, all_f1)
+    # print(sklearn.metrics.classification_report(df_test["y"],
+    #                                             actual,
+    #                                             output_dict=False))
+    print("Pos labels", pos_f1, "All labels", all_f1)
+
 
 if __name__ == "__main__":
     run_main()
