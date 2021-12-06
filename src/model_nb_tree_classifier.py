@@ -23,8 +23,16 @@ class ModelNBTreeClassifier:
         self.marker1 = marker1
         self._vec = None
         self._model_naivebayes = MultinomialNB()
-        self._model_logistic = tree.DecisionTreeClassifier()
+        self._model_tree = tree.DecisionTreeClassifier()
         self._num_classes = 0
+
+    @property
+    def tree_model(self):
+        return  self._model_tree
+
+    @property
+    def nb_model(self):
+        return self._model_tree
 
     def train(self, x, y):
         self._vec = CountVectorizer(stop_words='english', vocabulary=self._get_vocab(x, y))
@@ -33,7 +41,7 @@ class ModelNBTreeClassifier:
         self._model_naivebayes.fit(x_vector, y)
 
         features = self._extract_features(x, x_vector)
-        self._model_logistic.fit(features, y)
+        self._model_tree.fit(features, y)
 
     def _get_vocab(self, x, y):
         unique_labels = np.unique(y)
@@ -72,7 +80,7 @@ class ModelNBTreeClassifier:
         result = self._model_naivebayes.predict(x_vector)
 
         # Use  NB + logistic
-        result = self._model_logistic.predict(features)
+        result = self._model_tree.predict(features)
 
         return result
 
