@@ -92,7 +92,7 @@ class ModelNBTreeClassifier:
         result = self._model_naivebayes.predict(x_vector)
 
         # Use  NB + logistic
-        result = self._model_tree.predict(features)
+        #result = self._model_tree.predict(features)
 
         return result
 
