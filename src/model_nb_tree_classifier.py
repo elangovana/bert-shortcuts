@@ -23,8 +23,9 @@ class ModelNBTreeClassifier:
         self.marker1 = marker1
         self._vec = None
         self._model_naivebayes = MultinomialNB()
-        self._model_tree = tree.DecisionTreeClassifier()
+        self._model_tree = tree.DecisionTreeClassifier(max_depth=3)
         self._num_classes = 0
+        self._feature_names = []
 
     @property
     def tree_model(self):
@@ -32,7 +33,15 @@ class ModelNBTreeClassifier:
 
     @property
     def nb_model(self):
-        return self._model_tree
+        return self._model_naivebayes
+
+    @property
+    def feature_names(self):
+        return self._feature_names
+
+    @property
+    def vocab(self):
+        return self._vec.vocabulary_
 
     def train(self, x, y):
         self._vec = CountVectorizer(stop_words='english', vocabulary=self._get_vocab(x, y))
@@ -64,7 +73,10 @@ class ModelNBTreeClassifier:
         nb_predictions = self._model_naivebayes.predict(x_vector)
         features = list(
             zip(shortest_distance_feature, protein1_occurrance, protein2_occurrance, pair_per_sentence))
+
         features = [self._get_one_hot(p) + list(f) for p, f in zip(nb_predictions, features)]
+
+        self._feature_names = [f"l_{i}" for i in range(self._num_classes)] + ["shortest_dist", "p1_count", "p2_count", "pair_per_sen"]
         return features
 
     def _get_one_hot(self, i):
