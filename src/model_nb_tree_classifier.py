@@ -1,16 +1,11 @@
-import argparse
 import collections
-import logging
-import sys
+import functools
+import re
 
-import sklearn
+import numpy as np
+from sklearn import tree
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
-from sklearn import tree
-import re
-import functools
-import pandas as pd
-import numpy as np
 
 
 class ModelNBTreeClassifier:
@@ -18,7 +13,8 @@ class ModelNBTreeClassifier:
     Relation extractor using Naive bayes and logistics regression
     """
 
-    def __init__(self, marker1, marker2):
+    def __init__(self, marker1, marker2, max_words_per_class=500):
+        self.max_words_per_class = max_words_per_class
         self.marker2 = marker2
         self.marker1 = marker1
         self._vec = None
@@ -60,7 +56,7 @@ class ModelNBTreeClassifier:
     def _get_features_nb(self, x):
         custom_features = self._extract_custom_features(x)
         x_word_vector = self._vec.transform(x)
-        #extended_features = np.hstack((np.array(x_word_vector.toarray()), np.array(custom_features)))
+        # extended_features = np.hstack((np.array(x_word_vector.toarray()), np.array(custom_features)))
         extended_features = np.array(x_word_vector.toarray())
 
         return extended_features
@@ -71,7 +67,8 @@ class ModelNBTreeClassifier:
         for l in unique_labels:
             xl_instances = [ix for ix, iy in zip(x, y) if iy == l]
             min_df = max(2, int(len(xl_instances) * .1))
-            cv = CountVectorizer(stop_words='english', max_features=500, min_df=min_df, ngram_range=self._ngram_range,
+            cv = CountVectorizer(stop_words='english', max_features=self.max_words_per_class, min_df=min_df,
+                                 ngram_range=self._ngram_range,
                                  analyzer=self._analyser)
             cv.fit(xl_instances)
             result.extend([w for w in cv.vocabulary_])
@@ -111,12 +108,13 @@ class ModelNBTreeClassifier:
         nb_extended_features = self._get_features_nb(x)
         # Use just NB
         result = self._model_naivebayes.predict(nb_extended_features)
+        result_prob = np.max(np.array(self._model_naivebayes.predict_proba(nb_extended_features)), axis=-1)
 
         # Use  NB + logistic
         tree_features = self._extract_features_tree(x)
         # result = self._model_tree.predict(tree_features)
 
-        return result
+        return result, result_prob
 
     def _shortest_distance(self, text, p1, p2):
         words = re.split('\W+', text)
@@ -159,4 +157,4 @@ class ModelNBTreeClassifier:
         sentences = text.split(".")
         sentences_with_pairs = list(filter(lambda s: w1 in s and w2 in s, sentences))
 
-        return int(len(sentences_with_pairs) / len(sentences)*10)
+        return int(len(sentences_with_pairs) / len(sentences) * 10)
