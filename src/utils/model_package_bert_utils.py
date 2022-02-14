@@ -5,8 +5,10 @@ import sys
 import tarfile
 import shutil
 
+from transformers import BertForSequenceClassification
 
-def model_untar_and_package(model_tar_gz_path, config_file_path, vocab_file_path, output_dir):
+
+def model_untar_and_package_bert_sequence(model_tar_gz_path, config_file_path, vocab_file_path, output_dir):
     """
     Packages the model and the config file with vocab into the output dir
     """
@@ -14,10 +16,19 @@ def model_untar_and_package(model_tar_gz_path, config_file_path, vocab_file_path
     with  tarfile.open(model_tar_gz_path) as f:
         f.extractall(output_dir)
 
+    save_base_bert_sequence(output_dir)
+
     shutil.copyfile(config_file_path, os.path.join(output_dir, os.path.basename(config_file_path)))
 
     shutil.copyfile(vocab_file_path, os.path.join(output_dir, os.path.basename(vocab_file_path)))
-    logger.info("Files in output directory: {}".format(os.listdir(output_dir)))
+
+    logger.info("Files extracted in output directory: {}".format(os.listdir(output_dir)))
+
+
+def save_base_bert_sequence(model_dir):
+    logger = logging.getLogger(__name__)
+    logger.info("Saving just the base bert without classifier")
+    BertForSequenceClassification.from_pretrained(model_dir).bert.save_pretrained(model_dir)
 
 
 def parse_args():
@@ -51,7 +62,7 @@ def main_run():
     logging.basicConfig(level=logging.getLevelName(args.log_level), handlers=[logging.StreamHandler(sys.stdout)],
                         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     # Runs
-    model_untar_and_package(args.modeltarfile,
+    model_untar_and_package_bert_sequence(args.modeltarfile,
                             args.modelconfigfile,
                             args.vocabfile,
                             args.outdir
