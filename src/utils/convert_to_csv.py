@@ -4,10 +4,12 @@ import logging
 import sys
 
 
-def convert(input_csv, source_sep, dest_sep, output_file, quote_char='"'):
+def convert(input_csv, source_sep, dest_sep, output_file, label_col, label_order, quote_char='"'):
     """
 Formats the input to the target by changing the separator
     """
+    label_map = {l: f"{i:03}_{l}" for i, l in enumerate(label_order)}
+    print(label_map)
 
     with open(input_csv, "r") as p_file:
         reader = csv.reader(p_file, delimiter=source_sep, quotechar=quote_char)
@@ -15,10 +17,15 @@ Formats the input to the target by changing the separator
         print(header_cols)
         source_lines = list(reader)
 
+    label_index = list(filter(lambda x: x[1] == label_col, enumerate(header_cols)))[0][0]
+    print(label_index)
+
     with open(output_file, "w") as w_file:
         writer = csv.writer(w_file, delimiter=dest_sep, quotechar=quote_char)
+        header_cols[label_index] = "label"
         writer.writerow(header_cols)
         for line in source_lines:
+            line[label_index] = label_map[line[label_index]]
             writer.writerow(line)
 
 
@@ -27,6 +34,12 @@ def parse_args():
 
     parser.add_argument("datafile_csv",
                         help="The csv file containing predictions")
+
+    parser.add_argument("label_col",
+                        help="The name of the label column")
+
+    parser.add_argument("labels_in_order_csv",
+                        help="The label names in order (csv) of index in the model. This is work around the default_glue_script")
 
     parser.add_argument("--src_csv_sep",
                         help="The csv separator for the source", default="\t")
@@ -55,7 +68,10 @@ def main_run():
     convert(args.datafile_csv,
             args.src_csv_sep,
             args.dest_csv_sep,
-            args.output)
+            args.output,
+            args.label_col,
+            args.labels_in_order_csv.split(",")
+            )
 
 
 if __name__ == '__main__':

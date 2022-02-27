@@ -9,5 +9,6 @@
 ## Helper to convert tsv to csv
 
 ```bash
- python src/utils/convert_to_csv.py --output temp/dev_matched.csv temp/data/dev_matched.tsv
+ python src/utils/convert_to_csv.py --output temp/dev_matched.csv temp/data/dev_matched.tsv gold_label entailment,neutral,contradiction
+
 ```
