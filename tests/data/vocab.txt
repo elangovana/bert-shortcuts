@@ -1,0 +1,8 @@
+[PAD]
+[UNK]
+A
+B
+C
+E
+E
+
