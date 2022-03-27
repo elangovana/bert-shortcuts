@@ -1,4 +1,5 @@
 import os.path
+import tempfile
 from unittest import TestCase
 
 from transformers import BertForSequenceClassification, BertTokenizer, BertConfig
@@ -36,7 +37,7 @@ class TestPredictEntailment(TestCase):
 
         sut = PredictEntailment(model, tokenizer)
 
-        temp_output = os.path.join(os.path.dirname(__file__), "out.csv")
+        temp_output = os.path.join(tempfile.mkdtemp(), "temp.csv")
 
         # Act
         sut(sentences_a, sentences_b, transform_result_func=lambda a, b, c: sut.write_to_file(temp_output, a, b, c))
