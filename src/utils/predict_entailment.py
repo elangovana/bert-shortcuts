@@ -82,7 +82,7 @@ class PredictEntailment:
             return x
 
         with open(output_file, "w") as f:
-            csv_f = csv.writer(f, delimiter='\t', quotechar='"')
+            csv_f = csv.writer(f, delimiter=',', quotechar='"')
             csv_f.writerow(["confidence", "pred_index", "sentence_a", "sentence_b", "label_index", "label_name"])
             for pred_prob, inputs, labels in zip(pred_prob_batched, inputs_batched, result_gt_batched):
                 rows = [[max(p.cpu().numpy()), numpy.argmax(p.cpu().numpy()), i[0], i[1], label_indexer(l), l]
