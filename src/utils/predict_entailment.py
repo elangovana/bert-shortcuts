@@ -1,5 +1,7 @@
+import csv
 import itertools
 
+import numpy
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 
@@ -31,6 +33,8 @@ class PredictEntailment:
         labels = labels or [0] * len(sentences_a)
 
         self._model.to(self.device)
+        # Set model in eval mode
+        self._model.eval()
 
         for (batch_a, batch_b, batch_label) in zip(self._chunk(sentences_a, self.batch_size),
                                                    self._chunk(sentences_b, self.batch_size),
@@ -42,7 +46,8 @@ class PredictEntailment:
             for k, v in inputs.items():
                 inputs[k] = v.to(self.device)
 
-            classification_logits = self._model(**inputs)[0]
+            with torch.no_grad():
+                classification_logits = self._model(**inputs)[0]
 
             pred_prob = torch.softmax(classification_logits, dim=1)
 
@@ -68,3 +73,18 @@ class PredictEntailment:
         if len(accumulator) > 0:
             print(accumulator)
             yield accumulator
+
+    def write_to_file(self, output_file, pred_prob_batched, inputs_batched, result_gt_batched, labels_order=None):
+
+        def label_indexer(x):
+            if labels_order:
+                return labels_order.index(x)
+            return x
+
+        with open(output_file, "w") as f:
+            csv_f = csv.writer(f, delimiter='\t', quotechar='"')
+            csv_f.writerow(["confidence", "pred_index", "sentence_a", "sentence_b", "label_index", "label_name"])
+            for pred_prob, inputs, labels in zip(pred_prob_batched, inputs_batched, result_gt_batched):
+                rows = [[max(p.cpu().numpy()), numpy.argmax(p.cpu().numpy()), i[0], i[1], label_indexer(l), l]
+                        for (p, i, l) in zip(pred_prob, inputs, labels)]
+                csv_f.writerows(rows)
