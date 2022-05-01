@@ -3,6 +3,7 @@ import functools
 import re
 
 import numpy as np
+from nltk.stem import PorterStemmer
 from sklearn import tree
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
@@ -44,11 +45,14 @@ class ModelNBTreeClassifier:
     def train(self, x, y):
         self._vec = CountVectorizer(stop_words='english', vocabulary=self._get_vocab(x, y),
                                     ngram_range=self._ngram_range, analyzer=self._analyser)
-        self._num_classes = len(np.unique(y))
+        unique_labels = np.unique(y)
+        assert any([not isinstance(l, int) for l in unique_labels]), "Labels must be numeric"
+
+        self._num_classes = max(unique_labels) + 1
         self._vec.fit(x)
 
-        extended_features = self._get_features_nb(x)
-        self._model_naivebayes.fit(extended_features, y)
+        nb_features = self._get_features_nb(x)
+        self._model_naivebayes.fit(nb_features, y)
 
         tree_features = self._extract_features_tree(x)
         self._model_tree.fit(tree_features, y)
@@ -90,7 +94,7 @@ class ModelNBTreeClassifier:
         return features
 
     def _extract_custom_features(self, x):
-        shortest_distance_feature = map(lambda x: self._shortest_distance(x, self.marker1, self.marker2), x)
+        shortest_distance_feature = map(lambda x: self._shortest_distance_ptm(x, [self.marker1, self.marker2]), x)
         protein1_occurrance = map(lambda x: self._occurrance_weight(x, self.marker1), x)
         protein2_occurrance = map(lambda x: self._occurrance_weight(x, self.marker2), x)
         pair_per_sentence = map(lambda x: self._pair_per_sentence(x, self.marker1, self.marker2), x)
@@ -106,33 +110,58 @@ class ModelNBTreeClassifier:
 
     def predict(self, x):
         nb_extended_features = self._get_features_nb(x)
-        # Use just NB
-        result = self._model_naivebayes.predict(nb_extended_features)
-        result_prob = np.max(np.array(self._model_naivebayes.predict_proba(nb_extended_features)), axis=-1)
+        # # Use just NB
+        # result = self._model_naivebayes.predict(nb_extended_features)
+        # result_prob = np.max(np.array(self._model_naivebayes.predict_proba(nb_extended_features)), axis=-1)
 
         # Use  NB + logistic
         tree_features = self._extract_features_tree(x)
-        # result = self._model_tree.predict(tree_features)
+        result = self._model_tree.predict(tree_features)
+        result_prob = self._model_tree.predict_proba(tree_features)
 
         return result, result_prob
 
-    def _shortest_distance(self, text, p1, p2):
-        words = re.split('\W+', text)
+    def _shortest_distance_ptm(self, sentence, protien_markers):
+        ptm_type = ["phosphorylation", "acetylation", "ubiquitination", "methylation", "dephosphorylation",
+                    "deubiquitination"]
+        shortest_distance = None
+        porter = PorterStemmer()
+        stemmed_ptm = [porter.stem(w) for w in ptm_type]
+        for p in stemmed_ptm:
+            d = self._shortest_distance(sentence, protien_markers + [p])
+            if shortest_distance is None or d < shortest_distance:
+                shortest_distance = d
+        return shortest_distance
 
-        start_i = None
+    def _shortest_distance(self, sentence, words_to_match):
+        words = re.split('\W+', sentence)
+        porter = PorterStemmer()
+
+        stemmed_words = [porter.stem(w) for w in words]
+        subwords = [porter.stem(w) for w in words_to_match]
         min_distance = None
-
-        for i, w in enumerate(words):
-            if w not in [p1, p2]: continue
+        subwords_matched = []
+        subwords_matched_indices = []
+        min_distance_word = ""
+        for i, w in enumerate(stemmed_words):
+            if w not in subwords: continue
 
             # Treat this reset start pointer
             # Case
             #     when new
             #     when w = start_i
-            if start_i is None or w == words[start_i]:
-                start_i = i
+            if w in subwords_matched:
+                # print("Matched", w, subwords_matched)
+                for s_i, s in enumerate(subwords_matched):
+                    if s == w:
+                        del subwords_matched[s_i]
+                        del subwords_matched_indices[s_i]
 
-            else:
+            subwords_matched.append(w)
+            subwords_matched_indices.append(i)
+
+            if all([s in subwords_matched for s in subwords]):
+                start_i = subwords_matched_indices[0]
                 end_i = i
 
                 distance = end_i - start_i
