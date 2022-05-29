@@ -81,28 +81,55 @@ class ModelNBTreeRelationClassifier:
 
         return result
 
-    def _extract_features_tree(self, x):
-        main_features = self._extract_custom_features(x)
+    def _extract_features_tree(self, s):
+        features = {
+            "nearest_distance_trigger": self._extract_nearest_distance_trigger,
+            f"{self.marker1}_count": lambda x: self._extract_marker_occurance(self.marker1, x),
+            f"{self.marker2}_count": lambda x: self._extract_marker_occurance(self.marker2, x),
+            "pair_count": lambda x: self._extract_pair_count_per_sentence(self.marker1, self.marker2, x),
+            "naive_bayes": lambda x: self._model_naivebayes.predict(self._get_features_nb(x))
+        }
+        for t in self.trigger_words:
+            features[f"shortest_distance_{t}"] = lambda x: self._extract_shortest_distance_trigger(x, t)
 
-        nb_predictions = self._model_naivebayes.predict(self._get_features_nb(x))
+        feature_list = []
+        feature_names = []
+        for n, f in features.items():
+            feature_list.append(f(s))
+            feature_names.append(n)
 
-        features = [self._get_one_hot(p) + list(f) for p, f in zip(nb_predictions, main_features)]
-        # features = [p + list(f) for p, f in zip(x_vector.tocoo().data, features)]
-
-        self._feature_names = [f"l_{i}" for i in range(self._num_classes)] + ["shortest_dist", "p1_count", "p2_count",
-                                                                              "pair_per_sen"]
+        features = np.array(feature_list).T
+        print(features.shape)
+        self._feature_names = feature_names
         return features
 
-    def _extract_custom_features(self, x):
+    # def _extract_custom_features(self, x):
+    #     shortest_distance_feature = map(
+    #         lambda x: self._shortest_distance_triggerwords_markers(x, [self.marker1, self.marker2]), x)
+    #     protein2_occurrance = map(lambda x: self._occurrance_weight(x, self.marker2), x)
+    #     pair_per_sentence = map(lambda x: self._pair_per_sentence(x, self.marker1, self.marker2), x)
+    #     main_features = list(
+    #         zip(shortest_distance_feature, protein1_occurrance, protein2_occurrance, pair_per_sentence))
+    #     main_features = np.array(main_features)
+    #     return main_features
+
+    def _extract_nearest_distance_trigger(self, sentences):
         shortest_distance_feature = map(
-            lambda x: self._shortest_distance_triggerwords_markers(x, [self.marker1, self.marker2]), x)
-        protein1_occurrance = map(lambda x: self._occurrance_weight(x, self.marker1), x)
-        protein2_occurrance = map(lambda x: self._occurrance_weight(x, self.marker2), x)
-        pair_per_sentence = map(lambda x: self._pair_per_sentence(x, self.marker1, self.marker2), x)
-        main_features = list(
-            zip(shortest_distance_feature, protein1_occurrance, protein2_occurrance, pair_per_sentence))
-        main_features = np.array(main_features)
-        return main_features
+            lambda x: self._shortest_distance_triggerwords_markers(x, [self.marker1, self.marker2]), sentences)
+        return np.array(list(shortest_distance_feature))
+
+    def _extract_shortest_distance_trigger(self, sentences, trigger):
+        shortest_distance_feature = map(
+            lambda x: self._shortest_distance(x, [self.marker1, self.marker2, trigger]), sentences)
+        return np.array(list(shortest_distance_feature))
+
+    def _extract_marker_occurance(self, marker, x):
+        protein1_occurrance = map(lambda x: self._occurrance_weight(x, marker), x)
+        return np.array(list(protein1_occurrance))
+
+    def _extract_pair_count_per_sentence(self, marker1, marker2, x):
+        count_pair = map(lambda x: self._pair_per_sentence(x, marker1, marker2, ), x)
+        return np.array(list(count_pair))
 
     def _get_one_hot(self, i):
         result = list(np.zeros(self._num_classes))
