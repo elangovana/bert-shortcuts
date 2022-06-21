@@ -3,12 +3,13 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 
 
-class ModelNBClassifier:
+class ModelNBRelationClassifier:
     """
     Relation extractor using Naive bayes and logistics regression
     """
 
-    def __init__(self, marker1, marker2, max_words_per_class=500):
+    def __init__(self, marker1, marker2, min_df=None, max_words_per_class=10):
+        self.min_df = min_df
         self.max_words_per_class = max_words_per_class
         self.marker2 = marker2
         self.marker1 = marker1
@@ -51,7 +52,7 @@ class ModelNBClassifier:
         result = []
         for l in unique_labels:
             xl_instances = [ix for ix, iy in zip(x, y) if iy == l]
-            min_df = max(2, int(len(xl_instances) * .1))
+            min_df = self.min_df or max(2, int(len(xl_instances) * .1))
             cv = CountVectorizer(stop_words='english', max_features=self.max_words_per_class, min_df=min_df,
                                  ngram_range=self._ngram_range,
                                  analyzer=self._analyser)
@@ -59,7 +60,7 @@ class ModelNBClassifier:
             result.extend([w for w in cv.vocabulary_])
 
         result = list(set(result))
-
+        print("Max words : ", len(result))
         return result
 
     def predict(self, x):

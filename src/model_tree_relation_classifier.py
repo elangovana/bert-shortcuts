@@ -5,22 +5,17 @@ import re
 import numpy as np
 from nltk.stem import PorterStemmer
 from sklearn import tree
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.naive_bayes import MultinomialNB
 
 
-class ModelNBTreeRelationClassifier:
+class ModelTreeRelationClassifier:
     """
     Relation extractor using Naive bayes and logistics regression
     """
 
-    def __init__(self, marker1, marker2, max_words_per_class=50, min_df=None, trigger_words=None):
-        self.min_df = min_df
-        self.max_words_per_class = max_words_per_class
+    def __init__(self, marker1, marker2, trigger_words=None):
         self.marker2 = marker2
         self.marker1 = marker1
-        self._vec = None
-        self._model_naivebayes = MultinomialNB()
+        # self._vec = None
         self._model_tree = tree.DecisionTreeClassifier(max_depth=5)
         self._num_classes = 0
         self._feature_names = []
@@ -33,53 +28,13 @@ class ModelNBTreeRelationClassifier:
         return self._model_tree
 
     @property
-    def nb_model(self):
-        return self._model_naivebayes
-
-    @property
     def feature_names(self):
         return self._feature_names
 
-    @property
-    def vocab(self):
-        return self._vec.vocabulary_
-
     def train(self, x, y):
-        self._vec = CountVectorizer(stop_words='english', vocabulary=self._get_vocab(x, y),
-                                    ngram_range=self._ngram_range, analyzer=self._analyser)
-        unique_labels = np.unique(y)
-        assert any([not isinstance(l, int) for l in unique_labels]), "Labels must be numeric"
-
-        self._num_classes = max(unique_labels) + 1
-        self._vec.fit(x)
-
-        nb_features = self._get_features_nb(x)
-        self._model_naivebayes.fit(nb_features, y)
 
         tree_features = self._extract_features_tree(x)
         self._model_tree.fit(tree_features, y)
-
-    def _get_features_nb(self, x):
-        x_word_vector = self._vec.transform(x)
-        extended_features = np.array(x_word_vector.toarray())
-
-        return extended_features
-
-    def _get_vocab(self, x, y):
-        unique_labels = np.unique(y)
-        result = []
-        for l in unique_labels:
-            xl_instances = [ix for ix, iy in zip(x, y) if iy == l]
-            min_df = self.min_df or max(2, int(len(xl_instances) * .1))
-            cv = CountVectorizer(stop_words='english', max_features=self.max_words_per_class, min_df=min_df,
-                                 ngram_range=self._ngram_range,
-                                 analyzer=self._analyser)
-            cv.fit(xl_instances)
-            result.extend([w for w in cv.vocabulary_])
-
-        result = list(set(result))
-
-        return result
 
     def _extract_features_tree(self, s):
         features = {
@@ -87,10 +42,9 @@ class ModelNBTreeRelationClassifier:
             "E1C": lambda x: self._extract_marker_occurance(self.marker1, x),
             "E2C": lambda x: self._extract_marker_occurance(self.marker2, x),
             "SPC": lambda x: self._extract_pair_count_per_sentence(self.marker1, self.marker2, x),
-            "NB": lambda x: self._model_naivebayes.predict(self._get_features_nb(x))
         }
         for t in self.trigger_words:
-            features[f"shortest_distance_{t}"] = lambda x: self._extract_shortest_distance_trigger(x, t)
+            features[f"LSS_{t}"] = lambda x: self._extract_shortest_distance_trigger(x, t)
 
         feature_list = []
         feature_names = []
@@ -102,16 +56,6 @@ class ModelNBTreeRelationClassifier:
         print(features.shape)
         self._feature_names = feature_names
         return features
-
-    # def _extract_custom_features(self, x):
-    #     shortest_distance_feature = map(
-    #         lambda x: self._shortest_distance_triggerwords_markers(x, [self.marker1, self.marker2]), x)
-    #     protein2_occurrance = map(lambda x: self._occurrance_weight(x, self.marker2), x)
-    #     pair_per_sentence = map(lambda x: self._pair_per_sentence(x, self.marker1, self.marker2), x)
-    #     main_features = list(
-    #         zip(shortest_distance_feature, protein1_occurrance, protein2_occurrance, pair_per_sentence))
-    #     main_features = np.array(main_features)
-    #     return main_features
 
     def _extract_nearest_distance_trigger(self, sentences):
         shortest_distance_feature = map(
@@ -130,11 +74,6 @@ class ModelNBTreeRelationClassifier:
     def _extract_pair_count_per_sentence(self, marker1, marker2, x):
         count_pair = map(lambda x: self._pair_per_sentence(x, marker1, marker2, ), x)
         return np.array(list(count_pair))
-
-    def _get_one_hot(self, i):
-        result = list(np.zeros(self._num_classes))
-        result[i] = 1
-        return result
 
     def predict(self, x):
 
