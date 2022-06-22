@@ -5,12 +5,12 @@ import sys
 import pandas as pd
 import sklearn
 
-from model_nb_tree_classifier import ModelNBTreeClassifier
+from model_nb_relation_classifier import ModelNBTreeRelationClassifier
 
 
 def train(trainfile, testfile=None):
     df_train = pd.read_json(trainfile, orient="records")
-    m = ModelNBTreeClassifier("PROTPART1", "PROTPART0")
+    m = ModelNBTreeRelationClassifier("PROTPART1", "PROTPART0")
     m.train(df_train["x"], df_train["y"])
     if testfile is not None:
         df_test = pd.read_json(testfile, orient="records")
