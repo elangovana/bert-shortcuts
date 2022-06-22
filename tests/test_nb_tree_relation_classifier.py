@@ -1,20 +1,20 @@
 from unittest import TestCase
 
-from model_nb_tree_classifier import ModelNBTreeClassifier
+from model_nb_tree_relation_classifier import ModelNBTreeRelationClassifier
 
 
-class TestNBTreeClassifier(TestCase):
+class TestNBTreeRelationClassifier(TestCase):
 
     def test_predict(self):
         # Arrange
-        sut = ModelNBTreeClassifier("m1", "m2")
+        sut = ModelNBTreeRelationClassifier("M1", "M2", min_df=1)
         x = [
             "M1 is located in M2",
             "M1 is not located in M2"
         ]
         y = [
-            True,
-            False
+            1,
+            0
         ]
 
         sut.train(x, y)

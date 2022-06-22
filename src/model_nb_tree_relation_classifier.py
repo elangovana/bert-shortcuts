@@ -153,11 +153,14 @@ class ModelNBTreeRelationClassifier:
         # If has trigger words, return distance to nearest trigger word
         shortest_distance = None
         porter = PorterStemmer()
-        stemmed_ptm = [porter.stem(w) for w in self.trigger_words]
-        for p in stemmed_ptm:
+        stemmed_trigger = [porter.stem(w) for w in self.trigger_words]
+        for p in stemmed_trigger:
             d = self._shortest_distance(sentence, markers + [p])
             if shortest_distance is None or d < shortest_distance:
                 shortest_distance = d
+
+        if shortest_distance is None:
+            shortest_distance = 1000000
         return shortest_distance
 
     def _shortest_distance(self, sentence, words_to_match):
