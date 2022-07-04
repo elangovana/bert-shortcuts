@@ -15,14 +15,14 @@ class ModelNBTreeRelationClassifier:
     Relation extractor using Naive bayes and logistics regression
     """
 
-    def __init__(self, marker1, marker2, max_words_per_class=50, min_df=None, trigger_words=None):
+    def __init__(self, marker1, marker2, max_words_per_class=50, min_df=None, trigger_words=None, max_tree_depth=5):
         self.min_df = min_df
         self.max_words_per_class = max_words_per_class
         self.marker2 = marker2
         self.marker1 = marker1
         self._vec = None
         self._model_naivebayes = MultinomialNB()
-        self._model_tree = tree.DecisionTreeClassifier(max_depth=5)
+        self._model_tree = tree.DecisionTreeClassifier(max_depth=max_tree_depth)
         self._num_classes = 0
         self._feature_names = []
         self._ngram_range = (1, 3)
@@ -59,7 +59,7 @@ class ModelNBTreeRelationClassifier:
         nb_features = self._get_features_nb(x)
         self._model_naivebayes.fit(nb_features, y)
 
-        tree_features = self._extract_features_tree(x)
+        tree_features = self.extract_features(x)
         self._model_tree.fit(tree_features, y)
 
     def _get_features_nb(self, x):
@@ -84,7 +84,7 @@ class ModelNBTreeRelationClassifier:
 
         return result
 
-    def _extract_features_tree(self, s):
+    def extract_features(self, s):
         features = {
             "LSS": self._extract_nearest_distance_trigger,
             "E1C": lambda x: self._extract_marker_occurance(self.marker1, x),
@@ -131,7 +131,7 @@ class ModelNBTreeRelationClassifier:
     def predict(self, x):
 
         # Use  NB + logistic
-        tree_features = self._extract_features_tree(x)
+        tree_features = self.extract_features(x)
         result = self._model_tree.predict(tree_features)
         result_prob = self._model_tree.predict_proba(tree_features)
         result_prob = np.max(result_prob, axis=1)
