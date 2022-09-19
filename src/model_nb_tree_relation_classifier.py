@@ -15,7 +15,9 @@ class ModelNBTreeRelationClassifier:
     Relation extractor using Naive bayes and logistics regression
     """
 
-    def __init__(self, marker1, marker2, max_words_per_class=50, min_df=None, trigger_words=None, max_tree_depth=5):
+    def __init__(self, marker1=None, marker2=None, extract_span=False, max_words_per_class=50, min_df=None,
+                 trigger_words=None, max_tree_depth=5):
+        self.extract_span = extract_span
         self.min_df = min_df
         self.max_words_per_class = max_words_per_class
         self.marker2 = marker2
@@ -47,7 +49,32 @@ class ModelNBTreeRelationClassifier:
     def vocab(self):
         return self._vec.vocabulary_
 
+    def _swap(self, marker1, marker2):
+        return marker2, marker1
+
+    def _extract_span(self, item: str, marker1: str, marker2: str):
+        m1 = item.find(marker1)
+        m2 = item.find(marker2)
+        # m1 occurs first
+        if m1 > m2:
+            marker1, marker2 = self._swap(marker1, marker2)
+
+        m1_start = item.find(marker1)
+
+        m1_end = item.rfind(marker1)
+        m2_end = item.rfind(marker2)
+
+        end = m1_end + len(marker1) if m1_end > m2_end else m2_end + len(marker2)
+
+        return item[m1_start: end]
+
+    def preprocess(self, x):
+        if self.marker1 and self.marker2 and self.extract_span:
+            x = [self._extract_span(i, self.marker1, self.marker2) for i in x]
+        return x
+
     def train(self, x, y):
+        x = self.preprocess(x)
         self._vec = CountVectorizer(stop_words='english', vocabulary=self._get_vocab(x, y),
                                     ngram_range=self._ngram_range, analyzer=self._analyser)
         unique_labels = np.unique(y)
@@ -129,6 +156,7 @@ class ModelNBTreeRelationClassifier:
         return result
 
     def predict(self, x):
+        x = self.preprocess(x)
 
         # Use  NB + logistic
         tree_features = self.extract_features(x)
