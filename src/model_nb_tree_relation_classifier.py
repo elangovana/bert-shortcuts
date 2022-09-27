@@ -4,9 +4,8 @@ import functools
 import numpy as np
 from nltk.stem import PorterStemmer
 from sklearn import tree
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.naive_bayes import MultinomialNB
 
+from model_nb_relation_classifier import ModelNBRelationClassifier
 from utils.shortest_span import ShortestSpan
 
 
@@ -15,31 +14,36 @@ class ModelNBTreeRelationClassifier:
     Relation extractor using Naive bayes and logistics regression
     """
 
-    def __init__(self, marker1=None, marker2=None, extract_span=False, max_words_per_class=50, min_df=None,
+    def __init__(self, marker1=None, marker2=None, min_df=None, max_words_per_class=10, classwise_vocab=True,
+                 stop_words='english', ngram_range=(1, 3), extract_span=False,
                  trigger_words=None, max_tree_depth=5):
         self.extract_span = extract_span
-        self.min_df = min_df
-        self.max_words_per_class = max_words_per_class
+
         self.marker2 = marker2
         self.marker1 = marker1
-        self._vec = None
-        self._model_naivebayes = MultinomialNB()
         self._model_tree = tree.DecisionTreeClassifier(max_depth=max_tree_depth)
         self._num_classes = 0
         self._feature_names = []
-        self._ngram_range = (1, 3)
-        self._analyser = "word"
         self.trigger_words = trigger_words or []
         self._stemmer = PorterStemmer()
         self._shortest_span_calc = ShortestSpan(self._stemmer)
-
+        if extract_span:
+            self._nb = ModelNBRelationClassifier(marker1, marker2, min_df=min_df,
+                                                 max_words_per_class=max_words_per_class,
+                                                 classwise_vocab=classwise_vocab,
+                                                 stop_words=stop_words, ngram_range=ngram_range)
+        else:
+            self._nb = ModelNBRelationClassifier(None, None, min_df=min_df,
+                                                 max_words_per_class=max_words_per_class,
+                                                 classwise_vocab=classwise_vocab,
+                                                 stop_words=stop_words, ngram_range=ngram_range)
     @property
     def tree_model(self):
         return self._model_tree
 
     @property
     def nb_model(self):
-        return self._model_naivebayes
+        return self._nb.nb_model
 
     @property
     def feature_names(self):
@@ -47,7 +51,7 @@ class ModelNBTreeRelationClassifier:
 
     @property
     def vocab(self):
-        return self._vec.vocabulary_
+        return self._nb.vocab
 
     def _swap(self, marker1, marker2):
         return marker2, marker1
@@ -75,41 +79,11 @@ class ModelNBTreeRelationClassifier:
 
     def train(self, x, y):
         x = self.preprocess(x)
-        self._vec = CountVectorizer(stop_words='english', vocabulary=self._get_vocab(x, y),
-                                    ngram_range=self._ngram_range, analyzer=self._analyser)
-        unique_labels = np.unique(y)
-        assert any([not isinstance(l, int) for l in unique_labels]), "Labels must be numeric"
 
-        self._num_classes = max(unique_labels) + 1
-        self._vec.fit(x)
-
-        nb_features = self._get_features_nb(x)
-        self._model_naivebayes.fit(nb_features, y)
+        self._nb.train(x, y)
 
         tree_features = self.extract_features(x)
         self._model_tree.fit(tree_features, y)
-
-    def _get_features_nb(self, x):
-        x_word_vector = self._vec.transform(x)
-        extended_features = np.array(x_word_vector.toarray())
-
-        return extended_features
-
-    def _get_vocab(self, x, y):
-        unique_labels = np.unique(y)
-        result = []
-        for l in unique_labels:
-            xl_instances = [ix for ix, iy in zip(x, y) if iy == l]
-            min_df = self.min_df or max(2, int(len(xl_instances) * .1))
-            cv = CountVectorizer(stop_words='english', max_features=self.max_words_per_class, min_df=min_df,
-                                 ngram_range=self._ngram_range,
-                                 analyzer=self._analyser)
-            cv.fit(xl_instances)
-            result.extend([w for w in cv.vocabulary_])
-
-        result = list(set(result))
-
-        return result
 
     def extract_features(self, s):
         features = {
@@ -117,8 +91,9 @@ class ModelNBTreeRelationClassifier:
             "E1C": lambda x: self._extract_marker_occurance(self.marker1, x),
             "E2C": lambda x: self._extract_marker_occurance(self.marker2, x),
             "SPC": lambda x: self._extract_pair_count_per_sentence(self.marker1, self.marker2, x),
-            "NB": lambda x: self._model_naivebayes.predict(self._get_features_nb(x))
+            "NB": lambda x: self._nb.predict(x)[0]
         }
+
         for t in self.trigger_words:
             features[f"LSS_{t}"] = lambda x: self._extract_shortest_distance_trigger(x, t)
 

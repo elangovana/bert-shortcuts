@@ -68,10 +68,10 @@ class ModelNBRelationClassifier:
         self._num_classes = len(np.unique(y))
         self._vec.fit(x)
 
-        nb_features = self._get_features_nb(x)
+        nb_features = self.get_features_nb(x)
         self._model_naivebayes.fit(nb_features, y)
 
-    def _get_features_nb(self, x):
+    def get_features_nb(self, x):
         x_word_vector = self._vec.transform(x)
         extended_features = np.array(x_word_vector.toarray())
 
@@ -107,7 +107,7 @@ class ModelNBRelationClassifier:
 
     def predict(self, x):
         x = self.preprocess(x)
-        nb_extended_features = self._get_features_nb(x)
+        nb_extended_features = self.get_features_nb(x)
         result = self._model_naivebayes.predict(nb_extended_features)
         result_prob = np.max(np.array(self._model_naivebayes.predict_proba(nb_extended_features)), axis=-1)
 
