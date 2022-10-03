@@ -9,7 +9,8 @@ class ModelNBRelationClassifier:
     """
 
     def __init__(self, marker1=None, marker2=None, min_df=None, max_words_per_class=10, classwise_vocab=True,
-                 stop_words='english', ngram_range=(1, 3)):
+                 stop_words='english', ngram_range=(1, 3), analyzer='word', lowercase=True):
+        self._lowercase = lowercase
         self.min_df = min_df
         self.max_words_per_class = max_words_per_class
         self.marker2 = marker2
@@ -18,7 +19,7 @@ class ModelNBRelationClassifier:
         self._model_naivebayes = MultinomialNB()
         self._num_classes = 0
         self._feature_names = []
-        self._analyser = "word"
+        self._analyser = analyzer
         self._stop_words = stop_words
         self._ngram_range = ngram_range
         self._get_vocab = self._get_vocab_common
@@ -64,7 +65,7 @@ class ModelNBRelationClassifier:
     def train(self, x, y):
         x = self.preprocess(x)
         self._vec = CountVectorizer(stop_words=self._stop_words, vocabulary=self._get_vocab(x, y),
-                                    ngram_range=self._ngram_range, analyzer=self._analyser)
+                                    ngram_range=self._ngram_range, analyzer=self._analyser, lowercase=self._lowercase)
         self._num_classes = len(np.unique(y))
         self._vec.fit(x)
 
@@ -84,7 +85,7 @@ class ModelNBRelationClassifier:
             xl_instances = [ix for ix, iy in zip(x, y) if iy == l]
             min_df = self.min_df or max(2, int(len(xl_instances) * .1))
             cv = CountVectorizer(stop_words=self._stop_words, max_features=self.max_words_per_class, min_df=min_df,
-                                 ngram_range=self._ngram_range,
+                                 ngram_range=self._ngram_range, lowercase=self._lowercase,
                                  analyzer=self._analyser)
             cv.fit(xl_instances)
             result.extend([w for w in cv.vocabulary_])
