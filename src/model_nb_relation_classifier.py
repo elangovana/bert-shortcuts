@@ -98,7 +98,7 @@ class ModelNBRelationClassifier:
 
         min_df = self.min_df or max(2, int(len(x) * .1))
         cv = CountVectorizer(stop_words=self._stop_words, max_features=self.max_words_per_class, min_df=min_df,
-                             ngram_range=self._ngram_range,
+                             ngram_range=self._ngram_range, lowercase=self._lowercase,
                              analyzer=self._analyser)
         cv.fit(x)
         result = [w for w in cv.vocabulary_]
