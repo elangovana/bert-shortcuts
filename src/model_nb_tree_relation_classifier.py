@@ -1,5 +1,8 @@
 import collections
 import functools
+import os
+from functools import partial
+from multiprocessing import Pool
 
 import numpy as np
 from nltk.stem import PorterStemmer
@@ -82,7 +85,10 @@ class ModelNBTreeRelationClassifier:
 
         self._nb.train(x, y)
 
+        print(f"Extracting features..for {len(x)}")
         tree_features = self.extract_features(x)
+
+        print(f"Completed..")
         self._model_tree.fit(tree_features, y)
 
     def extract_features(self, s):
@@ -108,21 +114,30 @@ class ModelNBTreeRelationClassifier:
         return features
 
     def _extract_nearest_distance_trigger(self, sentences):
-        shortest_distance_feature = map(
-            lambda x: self._shortest_distance_triggerwords_markers(x, [self.marker1, self.marker2]), sentences)
+        with Pool(os.cpu_count()) as p:
+            shortest_distance_feature = p.map(
+                self._lambda_shortest_distance_triggerwords_markers, sentences)
         return np.array(list(shortest_distance_feature))
+
+    def _lambda_shortest_distance_triggerwords_markers(self, x):
+        return self._shortest_distance_triggerwords_markers(x, [self.marker1, self.marker2])
 
     def _extract_shortest_distance_trigger(self, sentences, trigger):
-        shortest_distance_feature = map(
-            lambda x: self._shortest_span_calc(x, [self.marker1, self.marker2, self._stemmer.stem(trigger)]), sentences)
+        with Pool(os.cpu_count()) as p:
+            shortest_distance_feature = p.map(partial(self._lambda_shortest_span_calc, trigger=trigger), sentences)
         return np.array(list(shortest_distance_feature))
 
+    def _lambda_shortest_span_calc(self, x, trigger):
+        return self._shortest_span_calc(x, [self.marker1, self.marker2, self._stemmer.stem(trigger)])
+
     def _extract_marker_occurance(self, marker, x):
-        protein1_occurrance = map(lambda x: self._occurrance_weight(x, marker), x)
+        with Pool(os.cpu_count()) as p:
+            protein1_occurrance = p.map(partial(self._occurrance_weight, word=marker), x)
         return np.array(list(protein1_occurrance))
 
     def _extract_pair_count_per_sentence(self, marker1, marker2, x):
-        count_pair = map(lambda x: self._pair_per_sentence(x, marker1, marker2, ), x)
+        with Pool(os.cpu_count()) as p:
+            count_pair = p.map(partial(self._pair_per_sentence, w1=marker1, w2=marker2), x)
         return np.array(list(count_pair))
 
     def _get_one_hot(self, i):
