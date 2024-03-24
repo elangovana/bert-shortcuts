@@ -33,7 +33,9 @@ class ModelNBTreeNliClassifier:
             "PNEG": lambda x: self._has_neg(x, "premise"),
             "NBC": lambda x: [p_l == "contradiction" for p_l in self._nb.predict([i["prem_hyp"] for i in x])[0]],
             "NBE": lambda x: [p_l == "entailment" for p_l in self._nb.predict([i["prem_hyp"] for i in x])[0]],
-            "NBN": lambda x: [p_l == "neutral" for p_l in self._nb.predict([i["prem_hyp"] for i in x])[0]]
+            "NBN": lambda x: [p_l == "neutral" for p_l in self._nb.predict([i["prem_hyp"] for i in x])[0]],
+
+            "LOV": lambda x: self._num_words_overlap_hyp_prem(x)
 
         }
 
@@ -109,3 +111,12 @@ class ModelNBTreeNliClassifier:
         result_prob = np.max(result_prob, axis=1)
 
         return result, result_prob
+
+    def _num_words_overlap_hyp_prem(self, x):
+        result = []
+        for xi in x:
+            words_overlap = set(xi["premise"].lower().split(" ")) \
+                .intersection(set(xi["hypothesis"].lower().split(" ")))
+
+            result.append(len(words_overlap))
+        return result
