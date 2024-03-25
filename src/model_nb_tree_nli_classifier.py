@@ -11,11 +11,12 @@ class ModelNBTreeNliClassifier:
     Relation extractor using Naive bayes and logistics regression
     """
 
-    def __init__(self, min_df=None, max_words_per_class=10, classwise_vocab=True,
+    def __init__(self, x_feature_key, min_df=None, max_words_per_class=10, classwise_vocab=True,
                  stop_words='english', ngram_range=(1, 3), extract_span=False,
                  trigger_words=None, max_tree_depth=5):
         self.extract_span = extract_span
-
+        # X column can be the premise / hypothesis or a merged version.
+        self.x_feature_key = x_feature_key
         self._model_tree = tree.DecisionTreeClassifier(max_depth=max_tree_depth)
         self._num_classes = 0
         self._feature_names = []
@@ -31,9 +32,9 @@ class ModelNBTreeNliClassifier:
             "PRL": lambda x: self._extract_num_words(x, "premise"),
             "HNEG": lambda x: self._has_neg(x, "hypothesis"),
             "PNEG": lambda x: self._has_neg(x, "premise"),
-            "NBC": lambda x: [p_l == "contradiction" for p_l in self._nb.predict([i["prem_hyp"] for i in x])[0]],
-            "NBE": lambda x: [p_l == "entailment" for p_l in self._nb.predict([i["prem_hyp"] for i in x])[0]],
-            "NBN": lambda x: [p_l == "neutral" for p_l in self._nb.predict([i["prem_hyp"] for i in x])[0]],
+            "NBC": lambda x: [p_l == "contradiction" for p_l in self._nb.predict([i[x_feature_key] for i in x])[0]],
+            "NBE": lambda x: [p_l == "entailment" for p_l in self._nb.predict([i[x_feature_key] for i in x])[0]],
+            "NBN": lambda x: [p_l == "neutral" for p_l in self._nb.predict([i[x_feature_key] for i in x])[0]],
 
             "LOV": lambda x: self._num_words_overlap_hyp_prem(x)
 
@@ -56,8 +57,7 @@ class ModelNBTreeNliClassifier:
         return self._nb.vocab
 
     def preprocess(self, x):
-        for item in x:
-            item["prem_hyp"] = "{},{}".format(item["premise"], item["hypothesis"])
+
         return x
 
     def train(self, x, y):
@@ -66,7 +66,7 @@ class ModelNBTreeNliClassifier:
         """
         x = self.preprocess(x)
 
-        self._nb.train([i["prem_hyp"] for i in x], y)
+        self._nb.train([i[self.x_feature_key] for i in x], y)
 
         print(f"Extracting features..for {len(x)}")
         tree_features = self.extract_features(x)
